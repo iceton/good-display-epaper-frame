@@ -1,0 +1,12 @@
+[Unit]
+Description=Image Upload FastCGI Socket
+PartOf=upload-image.service
+
+[Socket]
+ListenStream=/run/upload-image.sock
+SocketUser=www-data
+SocketGroup=www-data
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target
