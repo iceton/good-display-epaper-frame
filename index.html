@@ -1,0 +1,154 @@
+<html>
+<head>
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+     <style>
+       body {
+         font-family: Arial, sans-serif;
+         max-width: 800px;
+         margin: 20px auto;
+         padding: 0 20px;
+       }
+       #imagePreviewContainer {
+         display: none;
+         margin: 20px 0;
+         max-height: 500px;
+       }
+       #imagePreview {
+         max-width: 100%;
+       }
+       #uploadCroppedBtn {
+         display: none;
+         padding: 10px 20px;
+         background-color: #007bff;
+         color: white;
+         border: none;
+         border-radius: 4px;
+         cursor: pointer;
+         font-size: 16px;
+       }
+       #uploadCroppedBtn:hover {
+         background-color: #0056b3;
+       }
+       #uploadCroppedBtn:disabled {
+         background-color: #ccc;
+         cursor: not-allowed;
+       }
+       .original-submit {
+         display: none;
+       }
+     </style>
+</head>
+<body>
+
+<form id="uploadForm" method="post" action='/frame/upload' enctype="multipart/form-data">
+  <input type="file" id="fileInput" name="image" accept="image/dng, image/jpeg, image/heic, .dng, .jpg, .jpeg, .heic"><br><br>
+  <input type="submit" class="original-submit">
+</form>
+
+<div id="imagePreviewContainer">
+  <img id="imagePreview" />
+</div>
+
+<button id="uploadCroppedBtn">Upload Cropped Image</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script>
+  let cropper = null;
+  const fileInput = document.getElementById('fileInput');
+  const imagePreview = document.getElementById('imagePreview');
+  const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+  const uploadCroppedBtn = document.getElementById('uploadCroppedBtn');
+
+  // Handle file selection
+  fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Destroy existing cropper if any
+    if (cropper) {
+      cropper.destroy();
+      cropper = null;
+    }
+
+    // Read and display the selected image
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      imagePreview.src = event.target.result;
+      imagePreviewContainer.style.display = 'block';
+      uploadCroppedBtn.style.display = 'inline-block';
+
+      // Initialize cropper with 5/3 aspect ratio
+      cropper = new Cropper(imagePreview, {
+        aspectRatio: 5 / 3,
+        viewMode: 1,
+        autoCropArea: 1,
+        responsive: true,
+        guides: true,
+        center: true,
+        highlight: true,
+        background: true,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Handle upload of cropped image
+  uploadCroppedBtn.addEventListener('click', async function() {
+    if (!cropper) return;
+
+    // Disable button during upload
+    uploadCroppedBtn.disabled = true;
+    uploadCroppedBtn.textContent = 'Uploading...';
+
+    // Get cropped canvas
+    const canvas = cropper.getCroppedCanvas({
+      maxWidth: 4096,
+      maxHeight: 4096,
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high'
+    });
+
+    // Convert to blob
+    canvas.toBlob(async function(blob) {
+      // Create form data with the cropped image
+      const formData = new FormData();
+      const originalFile = fileInput.files[0];
+      const fileName = originalFile.name.replace(/\.[^/.]+$/, '') + '_cropped.jpg';
+      formData.append('image', blob, fileName);
+
+      // Upload
+      try {
+        const response = await fetch('/frame/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          alert('Image uploaded successfully!');
+          // Reset the form
+          fileInput.value = '';
+          imagePreviewContainer.style.display = 'none';
+          uploadCroppedBtn.style.display = 'none';
+          if (cropper) {
+            cropper.destroy();
+            cropper = null;
+          }
+        } else {
+          alert('Upload failed: ' + response.statusText);
+        }
+      } catch (error) {
+        alert('Upload error: ' + error.message);
+      } finally {
+        uploadCroppedBtn.disabled = false;
+        uploadCroppedBtn.textContent = 'Upload Cropped Image';
+      }
+    }, 'image/jpeg', 0.95);
+  });
+</script>
+
+</body>
+</html>
